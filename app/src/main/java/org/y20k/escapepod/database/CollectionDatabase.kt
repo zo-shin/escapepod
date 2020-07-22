@@ -4,19 +4,23 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.TypeConverters
 
 @Database(entities = arrayOf(PodcastEntity::class, EpisodeEntity::class), version = 1)
+@TypeConverters(Converters::class)
 abstract class CollectionDatabase : RoomDatabase() {
+
     abstract fun podcastDao(): PodcastDao
+
     abstract fun episodeDao(): EpisodeDao
 
 
     companion object {
 
-        @Volatile
-        private var INSTANCE: CollectionDatabase? = null
+        var INSTANCE: CollectionDatabase? = null
 
         fun getInstance(context: Context): CollectionDatabase {
+
             synchronized(this) {
                 var instance: CollectionDatabase? = INSTANCE
 

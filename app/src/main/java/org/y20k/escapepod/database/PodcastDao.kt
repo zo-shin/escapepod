@@ -2,6 +2,7 @@ package org.y20k.escapepod.database
 
 import androidx.lifecycle.LiveData
 import androidx.room.*
+import org.y20k.escapepod.helpers.LogHelper
 
 @Dao
 interface PodcastDao {
@@ -11,10 +12,7 @@ interface PodcastDao {
     @Query("SELECT * FROM podcasts")
     fun getAll(): LiveData<List<PodcastEntity>>
 
-    @Query("SELECT * FROM podcasts WHERE pid IN (:pids)")
-    fun loadAllByIds(pids: IntArray): List<PodcastEntity>
-
-    @Query("SELECT * FROM podcasts WHERE podcast_name LIKE :name LIMIT 1")
+    @Query("SELECT * FROM podcasts WHERE name LIKE :name LIMIT 1")
     fun findByName(name: String): PodcastEntity
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
@@ -31,6 +29,7 @@ interface PodcastDao {
 
     @Transaction
     fun upsert(podcast: PodcastEntity) {
+        LogHelper.e("TAG", "Upsert => ${podcast.name}")
         val rowId = insert(podcast)
         if (rowId == -1L) {
             update(podcast)

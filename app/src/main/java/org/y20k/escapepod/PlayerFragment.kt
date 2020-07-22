@@ -49,6 +49,7 @@ import org.y20k.escapepod.collection.CollectionAdapter
 import org.y20k.escapepod.collection.CollectionViewModel
 import org.y20k.escapepod.core.Collection
 import org.y20k.escapepod.core.Episode
+import org.y20k.escapepod.database.PodcastEntity
 import org.y20k.escapepod.dialogs.ErrorDialog
 import org.y20k.escapepod.dialogs.FindPodcastDialog
 import org.y20k.escapepod.dialogs.OpmlImportDialog
@@ -752,7 +753,13 @@ class PlayerFragment: Fragment(), CoroutineScope,
             layout.updateUpNextViews(upNextEpisode)
             // handle start intent
             handleStartIntent()
-       })
+        })
+
+        // todo just a test
+        collectionViewModel.collectionPodcastsLiveData.observe(this, Observer<List<PodcastEntity>> {
+            LogHelper.e(TAG, "Change observed => $it")
+        })
+
     }
 
 

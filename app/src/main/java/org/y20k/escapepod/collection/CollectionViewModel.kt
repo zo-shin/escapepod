@@ -20,11 +20,16 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import kotlinx.coroutines.*
 import org.y20k.escapepod.Keys
 import org.y20k.escapepod.core.Collection
+import org.y20k.escapepod.database.CollectionDatabase
+import org.y20k.escapepod.database.EpisodeEntity
+import org.y20k.escapepod.database.PodcastEntity
+import org.y20k.escapepod.helpers.DatabaseHelper
 import org.y20k.escapepod.helpers.FileHelper
 import org.y20k.escapepod.helpers.LogHelper
 import java.util.*
@@ -41,11 +46,14 @@ class CollectionViewModel(application: Application) : AndroidViewModel(applicati
 
     /* Main class variables */
     val collectionLiveData: MutableLiveData<Collection> = MutableLiveData<Collection>()
+    lateinit var collectionPodcastsLiveData: LiveData<List<PodcastEntity>>
+
+    //val collectionEpisodesLiveData: MutableLiveData<List<PodcastEntity>> = MutableLiveData<List<EpisodeEntity>>()
     private var modificationDateViewModel: Date = Date()
     private var collectionChangedReceiver: BroadcastReceiver
     private val backgroundJob = Job()
     private val uiScope = CoroutineScope(Dispatchers.Main + backgroundJob)
-//    private var collectionDatabase: CollectionDatabase
+    private var collectionDatabase: CollectionDatabase
 
 
     /* Init constructor */
@@ -56,7 +64,14 @@ class CollectionViewModel(application: Application) : AndroidViewModel(applicati
         collectionChangedReceiver = createCollectionChangedReceiver()
         LocalBroadcastManager.getInstance(application).registerReceiver(collectionChangedReceiver, IntentFilter(Keys.ACTION_COLLECTION_CHANGED))
         // get instance of collection database // todo remove: just a database test
-//        collectionDatabase = CollectionDatabase.getInstance(application)
+        collectionDatabase = CollectionDatabase.getInstance(application)
+
+        uiScope.launch {
+            // initialize podcast live data
+            val deferred: Deferred<LiveData<List<PodcastEntity>>> = async(Dispatchers.Default) { collectionDatabase.podcastDao().getAll() }
+            collectionPodcastsLiveData = deferred.await()
+        }
+
     }
 
 
@@ -97,26 +112,30 @@ class CollectionViewModel(application: Application) : AndroidViewModel(applicati
             modificationDateViewModel = collection.modificationDate
             // update collection view model
             collectionLiveData.value = collection
+
             // Todo remove: just a database test
-//            insertPodcasts(collection)
+            //insertPodcasts(collection)
+        }
+
+
     }
-}
-
-    // todo read this :-) https://itnext.io/room-persistence-library-using-mutablelivedata-observable-to-update-the-ui-after-a-database-6836d25e8267
 
 
-/* Todo remove: just a database test */
-//private fun insertPodcasts(collection: Collection) {
-//    GlobalScope.launch {
-//        //collectionDatabase.clearAllTables()
-//
-//        val result: Pair<List<PodcastEntity>, List<EpisodeEntity>> = DatabaseHelper.convertToPodcastEntityList(collection)
-//        collectionDatabase.podcastDao().insertAll(result.first)
-//        collectionDatabase.episodeDao().insertAll(result.second)
-//
-//        val numberOfEpisodes = collectionDatabase.episodeDao().getSize()
-//        val numberOfPodcasts = collectionDatabase.podcastDao().getSize()
-//    }
-//}
+    /* Todo remove: just a database test */
+    private fun insertPodcasts(collection: Collection) {
+        val backgroundJob = Job()
+        val uiScope = CoroutineScope(Dispatchers.IO + backgroundJob)
+        uiScope.launch {
+            collectionDatabase.clearAllTables()
+
+            val result: Pair<List<PodcastEntity>, List<EpisodeEntity>> = DatabaseHelper.convertToPodcastEntityList(collection)
+            collectionDatabase.podcastDao().insertAll(result.first)
+            collectionDatabase.episodeDao().insertAll(result.second)
+
+            val numberOfEpisodes = collectionDatabase.episodeDao().getSize()
+            val numberOfPodcasts = collectionDatabase.podcastDao().getSize()
+        }
+        backgroundJob.cancel()
+    }
 
 }

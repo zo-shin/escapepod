@@ -16,7 +16,7 @@ object DatabaseHelper {
                     website = podcast.website,
                     cover = podcast.cover,
                     smallCover = podcast.smallCover,
-                    lastUpdate = podcast.lastUpdate.time,
+                    lastUpdate = podcast.lastUpdate,
                     remoteImageFileLocation = podcast.remoteImageFileLocation,
                     remotePodcastFeedLocation = podcast.remotePodcastFeedLocation
             )
@@ -24,21 +24,21 @@ object DatabaseHelper {
 
             podcast.episodes.forEach { episode ->
                 val episodeEntity: EpisodeEntity = EpisodeEntity(
-                        podcastId = podcastEntity.pid,
                         guid = episode.guid,
                         title = episode.title,
                         description = episode.description,
                         audio = episode.audio,
                         cover = episode.cover,
                         smallCover = episode.smallCover,
-                        publicationDate = episode.publicationDate.time,
+                        publicationDate = episode.publicationDate,
                         playbackState = episode.playbackState,
                         playbackPosition = episode.playbackPosition,
                         duration = episode.duration,
                         manuallyDownloaded = episode.manuallyDownloaded,
                         manuallyDeleted = episode.manuallyDeleted,
                         remoteCoverFileLocation = episode.remoteCoverFileLocation,
-                        remoteAudioFileLocation = episode.remoteAudioFileLocation
+                        remoteAudioFileLocation = episode.remoteAudioFileLocation,
+                        episodeRemotePodcastFeedLocation = podcast.remotePodcastFeedLocation
                 )
                 episodeList.add(episodeEntity)
             }

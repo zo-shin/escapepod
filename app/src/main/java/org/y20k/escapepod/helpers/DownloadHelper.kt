@@ -26,6 +26,8 @@ import org.y20k.escapepod.R
 import org.y20k.escapepod.core.Collection
 import org.y20k.escapepod.core.Episode
 import org.y20k.escapepod.core.Podcast
+import org.y20k.escapepod.database.CollectionDatabase
+import org.y20k.escapepod.database.PodcastEntity
 import org.y20k.escapepod.extensions.copy
 import org.y20k.escapepod.xml.RssHelper
 import java.util.*
@@ -44,6 +46,7 @@ object DownloadHelper {
 
     /* Main class variables */
     private lateinit var collection: Collection
+    private lateinit var collectionDatabase: CollectionDatabase
     private lateinit var downloadManager: DownloadManager
     private lateinit var activeDownloads: ArrayList<Long>
     private lateinit var modificationDate: Date
@@ -158,6 +161,9 @@ object DownloadHelper {
         if (!this::collection.isInitialized || CollectionHelper.isNewerCollectionAvailable(context, modificationDate)) {
             collection = FileHelper.readCollection(context) // todo make async
             modificationDate = PreferencesHelper.loadCollectionModificationDate(context)
+        }
+        if (!this::collectionDatabase.isInitialized) {
+            collectionDatabase = CollectionDatabase.getInstance(context)
         }
         if (!this::downloadManager.isInitialized) {
             FileHelper.clearFolder(context.getExternalFilesDir(Keys.FOLDER_TEMP), 0)
@@ -339,26 +345,33 @@ object DownloadHelper {
     /* Async via coroutine: Reads podcast feed */
     private fun readPodcastFeed(context: Context, localFileUri: Uri, remoteFileLocation: String) {
         val backgroundJob = Job()
-        val uiScope = CoroutineScope(Dispatchers.Main + backgroundJob)
+        val uiScope = CoroutineScope(Dispatchers.IO + backgroundJob)
         uiScope.launch {
             LogHelper.v(TAG, "Reading podcast RSS file ($remoteFileLocation) - Thread: ${Thread.currentThread().name}")
             // async: readSuspended xml
-            val deferred: Deferred<Podcast> = async { RssHelper().readSuspended(context, localFileUri, remoteFileLocation) }
+            val deferred: Deferred<RssHelper.RssPodcast> = async { RssHelper().readSuspended(context, localFileUri, remoteFileLocation) }
             // wait for result and create podcast
-            val podcast: Podcast = deferred.await()
+            val result: RssHelper.RssPodcast = deferred.await()
 
-            when (CollectionHelper.validatePodcast(podcast)) {
-                Keys.PODCAST_VALIDATION_SUCESS -> {
-                    addPodcast(context, podcast)
-                }
-                Keys.PODCAST_VALIDATION_MISSING_COVER -> {
-                    addPodcast(context, podcast)
-                    Toast.makeText(context, context.getString(R.string.toast_message_error_validation_missing_cover), Toast.LENGTH_LONG).show()
-                }
-                Keys.PODCAST_VALIDATION_NO_VALID_EPISODES -> {
-                    Toast.makeText(context, context.getString(R.string.toast_message_error_validation_no_valid_episodes), Toast.LENGTH_LONG).show()
-                }
-            }
+            collectionDatabase.podcastDao().insert(PodcastEntity(result))
+
+            //val episodes: List<EpisodeEntity> = listOf(result.episodes.forEach { EpisodeEntity(it) })
+            //collectionDatabase.episodeDao().insertAll(episodes)
+
+//            val podcast: Podcast = deferred.await()
+//
+//            when (CollectionHelper.validatePodcast(podcast)) {
+//                Keys.PODCAST_VALIDATION_SUCESS -> {
+//                    addPodcast(context, podcast)
+//                }
+//                Keys.PODCAST_VALIDATION_MISSING_COVER -> {
+//                    addPodcast(context, podcast)
+//                    Toast.makeText(context, context.getString(R.string.toast_message_error_validation_missing_cover), Toast.LENGTH_LONG).show()
+//                }
+//                Keys.PODCAST_VALIDATION_NO_VALID_EPISODES -> {
+//                    Toast.makeText(context, context.getString(R.string.toast_message_error_validation_no_valid_episodes), Toast.LENGTH_LONG).show()
+//                }
+//            }
 
             CollectionHelper.trimPodcastEpisodeLists(context, collection)
             backgroundJob.cancel()
