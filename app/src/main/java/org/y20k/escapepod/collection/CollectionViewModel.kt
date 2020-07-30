@@ -28,7 +28,8 @@ import org.y20k.escapepod.Keys
 import org.y20k.escapepod.core.Collection
 import org.y20k.escapepod.database.CollectionDatabase
 import org.y20k.escapepod.database.EpisodeEntity
-import org.y20k.escapepod.database.PodcastEntity
+import org.y20k.escapepod.database.PodcastDataEntity
+import org.y20k.escapepod.database.PodcastWrapperEntity
 import org.y20k.escapepod.helpers.DatabaseHelper
 import org.y20k.escapepod.helpers.FileHelper
 import org.y20k.escapepod.helpers.LogHelper
@@ -45,8 +46,8 @@ class CollectionViewModel(application: Application) : AndroidViewModel(applicati
 
 
     /* Main class variables */
-    val collectionLiveData: MutableLiveData<Collection> = MutableLiveData<Collection>()
-    lateinit var collectionPodcastsLiveData: LiveData<List<PodcastEntity>>
+    val legacyCollectionLiveData: MutableLiveData<Collection> = MutableLiveData<Collection>()
+    lateinit var collectionLiveData: LiveData<List<PodcastWrapperEntity>>
 
     //val collectionEpisodesLiveData: MutableLiveData<List<PodcastEntity>> = MutableLiveData<List<EpisodeEntity>>()
     private var modificationDateViewModel: Date = Date()
@@ -68,8 +69,8 @@ class CollectionViewModel(application: Application) : AndroidViewModel(applicati
 
         uiScope.launch {
             // initialize podcast live data
-            val deferred: Deferred<LiveData<List<PodcastEntity>>> = async(Dispatchers.Default) { collectionDatabase.podcastDao().getAll() }
-            collectionPodcastsLiveData = deferred.await()
+            val deferred: Deferred<LiveData<List<PodcastWrapperEntity>>> = async(Dispatchers.Default) { collectionDatabase.podcastDao().getCollection() }
+            collectionLiveData = deferred.await()
         }
 
     }
@@ -111,7 +112,7 @@ class CollectionViewModel(application: Application) : AndroidViewModel(applicati
             // get updated modification date
             modificationDateViewModel = collection.modificationDate
             // update collection view model
-            collectionLiveData.value = collection
+            legacyCollectionLiveData.value = collection
 
             // Todo remove: just a database test
             //insertPodcasts(collection)
@@ -128,7 +129,7 @@ class CollectionViewModel(application: Application) : AndroidViewModel(applicati
         uiScope.launch {
             collectionDatabase.clearAllTables()
 
-            val result: Pair<List<PodcastEntity>, List<EpisodeEntity>> = DatabaseHelper.convertToPodcastEntityList(collection)
+            val result: Pair<List<PodcastDataEntity>, List<EpisodeEntity>> = DatabaseHelper.convertToPodcastEntityList(collection)
             collectionDatabase.podcastDao().insertAll(result.first)
             collectionDatabase.episodeDao().insertAll(result.second)
 

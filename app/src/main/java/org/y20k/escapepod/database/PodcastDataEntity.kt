@@ -9,7 +9,7 @@ import java.util.*
 
 
 @Entity(tableName = "podcasts", indices = arrayOf(Index(value = ["remote_podcast_feed_location"], unique = true)))
-data class PodcastEntity(
+data class PodcastDataEntity(
 
         @PrimaryKey
         @ColumnInfo (name = "remote_podcast_feed_location") val remotePodcastFeedLocation: String,

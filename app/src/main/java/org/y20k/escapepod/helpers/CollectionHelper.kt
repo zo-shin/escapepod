@@ -29,6 +29,7 @@ import org.y20k.escapepod.Keys
 import org.y20k.escapepod.core.Collection
 import org.y20k.escapepod.core.Episode
 import org.y20k.escapepod.core.Podcast
+import org.y20k.escapepod.database.PodcastDataEntity
 import java.io.File
 import java.util.*
 
@@ -145,31 +146,31 @@ object CollectionHelper {
 
 
     /* Checks if podcast has episodes that can be downloaded */
-    fun checkPodcastState(collection: Collection, newPodcast: Podcast): Int {
-        // get podcast from collection
-        val oldPodcast = getPodcast(collection, newPodcast)
-        // check if podcast is new
-        if (oldPodcast.episodes.isEmpty()) {
-            return Keys.PODCAST_STATE_NEW_PODCAST
-        }
-        // Step 1: New episode check -> compare GUIDs of latest episode
-        if (newPodcast.episodes[0].guid == oldPodcast.episodes[0].guid) {
-            when (!oldPodcast.episodes[0].manuallyDeleted && oldPodcast.episodes[0].audio.isEmpty()) {
-                true -> return Keys.PODCAST_STATE_HAS_NEW_EPISODES     // same podcast - but first episode not downloaded yet
-                false -> return Keys.PODCAST_STATE_PODCAST_UNCHANGED   // same podcast
-            }
-        }
-        // Step 2: Not yet downloaded episode check -> test if audio field is empty
-        if (getEpisode(collection, newPodcast.episodes[0].getMediaId()).audio.isEmpty()) {
-            return Keys.PODCAST_STATE_HAS_NEW_EPISODES
-        }
-        // Default return
-        return Keys.PODCAST_STATE_PODCAST_UNCHANGED
-    }
+//    fun checkPodcastState(collection: Collection, newPodcast: PodcastWrapperEntity): Int {
+//        // get podcast from collection
+//        val oldPodcast = getPodcast(collection, newPodcast)
+//        // check if podcast is new
+//        if (oldPodcast.episodes.isEmpty()) {
+//            return Keys.PODCAST_STATE_NEW_PODCAST
+//        }
+//        // Step 1: New episode check -> compare GUIDs of latest episode
+//        if (newPodcast.episodes[0].guid == oldPodcast.episodes[0].guid) {
+//            when (!oldPodcast.episodes[0].manuallyDeleted && oldPodcast.episodes[0].audio.isEmpty()) {
+//                true -> return Keys.PODCAST_STATE_HAS_NEW_EPISODES     // same podcast - but first episode not downloaded yet
+//                false -> return Keys.PODCAST_STATE_PODCAST_UNCHANGED   // same podcast
+//            }
+//        }
+//        // Step 2: Not yet downloaded episode check -> test if audio field is empty
+//        if (getEpisode(collection, newPodcast.episodes[0].getMediaId()).audio.isEmpty()) {
+//            return Keys.PODCAST_STATE_HAS_NEW_EPISODES
+//        }
+//        // Default return
+//        return Keys.PODCAST_STATE_PODCAST_UNCHANGED
+//    }
 
 
     /* Clears an image folder for a given podcast */
-    fun clearImagesFolder(context: Context, podcast: Podcast) {
+    fun clearImagesFolder(context: Context, podcast: PodcastDataEntity) {
         // clear image folder
         val imagesFolder: File = File(context.getExternalFilesDir(""), FileHelper.determineDestinationFolderPath(Keys.FILE_TYPE_IMAGE, podcast.name))
         FileHelper.clearFolder(imagesFolder, 0)
@@ -387,7 +388,7 @@ object CollectionHelper {
             putString(MediaMetadataCompat.METADATA_KEY_ALBUM, episode.podcastName)
             putString(MediaMetadataCompat.METADATA_KEY_ALBUM_ART_URI, episode.cover)
             putString(MediaMetadataCompat.METADATA_KEY_MEDIA_URI, episode.audio)
-            putBitmap(MediaMetadataCompat.METADATA_KEY_ALBUM_ART, ImageHelper.getPodcastCover(context, Uri.parse(episode.cover), Keys.SIZE_COVER_LOCK_SCREEN))
+            putBitmap(MediaMetadataCompat.METADATA_KEY_ALBUM_ART, ImageHelper.getScaledPodcastCover(context, episode.cover, Keys.SIZE_COVER_LOCK_SCREEN))
             putLong(MediaMetadataCompat.METADATA_KEY_DURATION, episode.duration)
         }.build()
     }

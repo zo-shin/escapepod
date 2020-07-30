@@ -25,9 +25,10 @@ import org.y20k.escapepod.Keys
 import org.y20k.escapepod.R
 import org.y20k.escapepod.core.Collection
 import org.y20k.escapepod.core.Episode
-import org.y20k.escapepod.core.Podcast
 import org.y20k.escapepod.database.CollectionDatabase
-import org.y20k.escapepod.database.PodcastEntity
+import org.y20k.escapepod.database.EpisodeEntity
+import org.y20k.escapepod.database.PodcastDataEntity
+import org.y20k.escapepod.database.PodcastWrapperEntity
 import org.y20k.escapepod.extensions.copy
 import org.y20k.escapepod.xml.RssHelper
 import java.util.*
@@ -45,7 +46,7 @@ object DownloadHelper {
 
 
     /* Main class variables */
-    private lateinit var collection: Collection
+    private lateinit var legacyCollection: Collection
     private lateinit var collectionDatabase: CollectionDatabase
     private lateinit var downloadManager: DownloadManager
     private lateinit var activeDownloads: ArrayList<Long>
@@ -68,10 +69,10 @@ object DownloadHelper {
         // initialize main class variables, if necessary
         initialize(context)
         // get episode
-        val episode: Episode = CollectionHelper.getEpisode(collection, mediaId)
+        val episode: Episode = CollectionHelper.getEpisode(legacyCollection, mediaId)
         // mark as manually downloaded if necessary
         if (manuallyDownloaded) {
-            collection = CollectionHelper.setManuallyDownloaded(collection, mediaId, manuallyDownloaded = true)
+            legacyCollection = CollectionHelper.setManuallyDownloaded(legacyCollection, mediaId, manuallyDownloaded = true)
             saveCollection(context)
         }
         // enqueue episode
@@ -81,7 +82,7 @@ object DownloadHelper {
 
 
     /* Refresh cover of given podcast */
-    fun refreshCover(context: Context, podcast: Podcast) {
+    fun refreshCover(context: Context, podcast: PodcastDataEntity) {
         // initialize main class variables, if necessary
         initialize(context)
         // check if feed has a cover
@@ -102,8 +103,8 @@ object DownloadHelper {
         initialize(context)
         // re-download all podcast xml episode lists
         PreferencesHelper.saveLastUpdateCollection(context)
-        val uris: Array<Uri> = Array(collection.podcasts.size) { it ->
-            collection.podcasts[it].remotePodcastFeedLocation.toUri()
+        val uris: Array<Uri> = Array(legacyCollection.podcasts.size) { it ->
+            legacyCollection.podcasts[it].remotePodcastFeedLocation.toUri()
         }
         // enqueue downloads to DownloadManager (= fire & forget - no return value needed)
         GlobalScope.launch { enqueueDownloadSuspended(context, uris, Keys.FILE_TYPE_RSS) }
@@ -116,8 +117,8 @@ object DownloadHelper {
         initialize(context)
         // re-download all podcast covers
         PreferencesHelper.saveLastUpdateCollection(context)
-        val uris: Array<Uri> = Array(collection.podcasts.size) { it ->
-            collection.podcasts[it].remoteImageFileLocation.toUri()
+        val uris: Array<Uri> = Array(legacyCollection.podcasts.size) { it ->
+            legacyCollection.podcasts[it].remoteImageFileLocation.toUri()
         }
         enqueueDownload(context, uris, Keys.FILE_TYPE_IMAGE)
         LogHelper.i(TAG, "Updating all covers.")
@@ -158,8 +159,8 @@ object DownloadHelper {
         if (!this::modificationDate.isInitialized) {
             modificationDate = PreferencesHelper.loadCollectionModificationDate(context)
         }
-        if (!this::collection.isInitialized || CollectionHelper.isNewerCollectionAvailable(context, modificationDate)) {
-            collection = FileHelper.readCollection(context) // todo make async
+        if (!this::legacyCollection.isInitialized || CollectionHelper.isNewerCollectionAvailable(context, modificationDate)) {
+            legacyCollection = FileHelper.readCollection(context) // todo make async
             modificationDate = PreferencesHelper.loadCollectionModificationDate(context)
         }
         if (!this::collectionDatabase.isInitialized) {
@@ -210,53 +211,44 @@ object DownloadHelper {
 
 
     /*  episode and podcast cover */
-    private fun enqueuePodcastMediaFiles(context: Context, podcast: Podcast, isNew: Boolean, ignoreWifiRestriction: Boolean = false) {
+    private fun enqueuePodcastMediaFiles(context: Context, podcastWrapper: PodcastWrapperEntity, isNew: Boolean, ignoreWifiRestriction: Boolean = false) {
         // new podcast: first download the cover
-        if (isNew && podcast.remoteImageFileLocation.isNotEmpty()) {
-            CollectionHelper.clearImagesFolder(context, podcast)
-            val coverUris: Array<Uri> = Array(1) { podcast.remoteImageFileLocation.toUri() }
+        if (isNew && podcastWrapper.data.remoteImageFileLocation.isNotEmpty()) {
+            CollectionHelper.clearImagesFolder(context, podcastWrapper.data)
+            val coverUris: Array<Uri> = Array(1) { podcastWrapper.data.remoteImageFileLocation.toUri() }
             enqueueDownload(context, coverUris, Keys.FILE_TYPE_IMAGE)
         }
         // download audio files only when connected to wifi - or if user chose otherwise
         if (ignoreWifiRestriction || PreferencesHelper.loadEpisodeDownloadOverMobile(context) || NetworkHelper.isConnectedToWifi(context)) {
             // download only if podcast has episodes
-            if (podcast.episodes.isNotEmpty()) {
+            if (podcastWrapper.episodes.isNotEmpty()) {
                 // delete oldest audio file
-                if (podcast.episodes.size >= Keys.DEFAULT_NUMBER_OF_EPISODES_TO_KEEP) {
-                    val oldestEpisode: Episode = podcast.episodes[Keys.DEFAULT_NUMBER_OF_EPISODES_TO_KEEP - 1]
-                    if (oldestEpisode.audio.isNotBlank()) { collection = CollectionHelper.deleteEpisodeAudioFile(context, collection, oldestEpisode.getMediaId()) }
+                if (podcastWrapper.episodes.size >= Keys.DEFAULT_NUMBER_OF_EPISODES_TO_KEEP) {
+                    val oldestEpisode: EpisodeEntity = podcastWrapper.episodes[Keys.DEFAULT_NUMBER_OF_EPISODES_TO_KEEP - 1]
+                    if (oldestEpisode.audio.isNotBlank()) { legacyCollection = CollectionHelper.deleteEpisodeAudioFile(context, legacyCollection, oldestEpisode.guid) }
                 }
                 // start download of latest episode audio file
-                val episodeUris: Array<Uri> = Array(1) { podcast.episodes[0].remoteAudioFileLocation.toUri() }
+                val episodeUris: Array<Uri> = Array(1) { podcastWrapper.episodes[0].remoteAudioFileLocation.toUri() }
                 enqueueDownload(context, episodeUris, Keys.FILE_TYPE_AUDIO)
             }
         }
     }
 
 
-    /* Adds podcast to podcast collection*/
-    private fun addPodcast(context: Context, podcast: Podcast) {
-        when (CollectionHelper.checkPodcastState(collection, podcast)) {
-            Keys.PODCAST_STATE_NEW_PODCAST -> {
-                collection = CollectionHelper.addPodcast(collection, podcast)
-                saveCollection(context, opmlExport = true)
-                enqueuePodcastMediaFiles(context, podcast, isNew = true)
-            }
-            (Keys.PODCAST_STATE_HAS_NEW_EPISODES) -> {
-                collection = CollectionHelper.updatePodcast(collection, podcast)
-                saveCollection(context, opmlExport = false)
-                enqueuePodcastMediaFiles(context, podcast, isNew = false)
-            }
-        }
+    /* Adds podcast and episodes to podcast collection*/
+    private fun addPodcast(context: Context, podcast: PodcastWrapperEntity) {
+        val newPodcast: Boolean = collectionDatabase.podcastDao().upsert(podcast.data)
+        collectionDatabase.episodeDao().upsertAll(podcast.episodes)
+        enqueuePodcastMediaFiles(context, podcast, newPodcast)
     }
 
 
     /* Sets podcast cover */
     private fun setPodcastImage(context: Context, tempFileUri: Uri, remoteFileLocation: String) {
-        collection.podcasts.forEach { podcast ->
+        legacyCollection.podcasts.forEach { podcast ->
             if (podcast.remoteImageFileLocation == remoteFileLocation) {
-                podcast.smallCover = FileHelper.saveCover(context, podcast.name, tempFileUri, Keys.SIZE_COVER_PODCAST_CARD, Keys.PODCAST_SMALL_COVER_FILE).toString()
-                podcast.cover = FileHelper.saveCover(context, podcast.name, tempFileUri, Keys.SIZE_COVER_MAXIMUM, Keys.PODCAST_COVER_FILE).toString()
+                podcast.smallCover = FileHelper.saveCover(context, podcast.name, tempFileUri.toString(), Keys.SIZE_COVER_PODCAST_CARD, Keys.PODCAST_SMALL_COVER_FILE).toString()
+                podcast.cover = FileHelper.saveCover(context, podcast.name, tempFileUri.toString(), Keys.SIZE_COVER_MAXIMUM, Keys.PODCAST_COVER_FILE).toString()
                 podcast.episodes.forEach { episode ->
                     episode.cover = podcast.cover
                     episode.smallCover = podcast.smallCover
@@ -272,7 +264,7 @@ object DownloadHelper {
     private fun setEpisodeMediaUri(context: Context, tempFileUri: Uri, remoteAudioFileLocation: String) {
         var matchingEpisodeFound = false
         // compare remoteFileLocations
-        collection.podcasts.forEach { podcast ->
+        legacyCollection.podcasts.forEach { podcast ->
             podcast.episodes.forEach { episode ->
                 if (episode.remoteAudioFileLocation == remoteAudioFileLocation) {
                     matchingEpisodeFound = true
@@ -284,7 +276,7 @@ object DownloadHelper {
         // no matching episode found - try matching filename only (second run) - a hack that should prevent a ton of network requests for potential redirects (e.g. feedburner links)
         if (!matchingEpisodeFound) {
             val localFileName: String = FileHelper.getFileName(context, tempFileUri)
-            collection.podcasts.forEach { podcast ->
+            legacyCollection.podcasts.forEach { podcast ->
                 podcast.episodes.forEach { episode ->
                     // compare file names
                     val url: String = episode.remoteAudioFileLocation
@@ -296,9 +288,9 @@ object DownloadHelper {
             }
         }
         // remove unused audio references from collection
-        collection = CollectionHelper.deleteUnneededAudioFiles(context, collection)
+        legacyCollection = CollectionHelper.deleteUnneededAudioFiles(context, legacyCollection)
         // update player state if necessary
-        PreferencesHelper.updatePlayerState(context, collection)
+        PreferencesHelper.updatePlayerState(context, legacyCollection)
         // save collection
         saveCollection(context)
     }
@@ -336,9 +328,9 @@ object DownloadHelper {
     /* Saves podcast collection to storage */
     private fun saveCollection(context: Context, opmlExport: Boolean = false) {
         // save collection (not async) - and store modification date
-        modificationDate = CollectionHelper.saveCollection(context, collection, async = false)
+        modificationDate = CollectionHelper.saveCollection(context, legacyCollection, async = false)
         // export as OPML, if requested
-        if (opmlExport) {CollectionHelper.exportCollection(context, collection)}
+        if (opmlExport) {CollectionHelper.exportCollection(context, legacyCollection)}
     }
 
 
@@ -353,7 +345,7 @@ object DownloadHelper {
             // wait for result and create podcast
             val result: RssHelper.RssPodcast = deferred.await()
 
-            collectionDatabase.podcastDao().insert(PodcastEntity(result))
+            collectionDatabase.podcastDao().insert(PodcastDataEntity(result))
 
             //val episodes: List<EpisodeEntity> = listOf(result.episodes.forEach { EpisodeEntity(it) })
             //collectionDatabase.episodeDao().insertAll(episodes)
@@ -373,7 +365,7 @@ object DownloadHelper {
 //                }
 //            }
 
-            CollectionHelper.trimPodcastEpisodeLists(context, collection)
+            CollectionHelper.trimPodcastEpisodeLists(context, legacyCollection)
             backgroundJob.cancel()
         }
     }

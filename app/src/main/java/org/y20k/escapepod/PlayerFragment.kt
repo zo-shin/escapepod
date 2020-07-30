@@ -49,7 +49,8 @@ import org.y20k.escapepod.collection.CollectionAdapter
 import org.y20k.escapepod.collection.CollectionViewModel
 import org.y20k.escapepod.core.Collection
 import org.y20k.escapepod.core.Episode
-import org.y20k.escapepod.database.PodcastEntity
+import org.y20k.escapepod.database.EpisodeEntity
+import org.y20k.escapepod.database.PodcastWrapperEntity
 import org.y20k.escapepod.dialogs.ErrorDialog
 import org.y20k.escapepod.dialogs.FindPodcastDialog
 import org.y20k.escapepod.dialogs.OpmlImportDialog
@@ -288,16 +289,16 @@ class PlayerFragment: Fragment(), CoroutineScope,
 
 
     /* Overrides onDownloadButtonTapped from CollectionAdapterListener */
-    override fun onDownloadButtonTapped(episode: Episode) {
+    override fun onDownloadButtonTapped(episode: EpisodeEntity) {
         downloadEpisode(episode)
     }
 
 
     /* Overrides onDeleteButtonTapped from CollectionAdapterListener */
-    override fun onDeleteButtonTapped(episode: Episode) {
+    override fun onDeleteButtonTapped(episode: EpisodeEntity) {
         MediaControllerCompat.getMediaController(activity as Activity).transportControls.pause()
         val dialogMessage: String = "${getString(R.string.dialog_yes_no_message_delete_episode)}\n\n- ${episode.title}"
-        YesNoDialog(this@PlayerFragment as YesNoDialog.YesNoDialogListener).show(context = activity as Context, type = Keys.DIALOG_DELETE_EPISODE, messageString = dialogMessage, yesButton = R.string.dialog_yes_no_positive_button_delete_episode, payloadString = episode.getMediaId())
+        YesNoDialog(this@PlayerFragment as YesNoDialog.YesNoDialogListener).show(context = activity as Context, type = Keys.DIALOG_DELETE_EPISODE, messageString = dialogMessage, yesButton = R.string.dialog_yes_no_positive_button_delete_episode, payloadString = episode.guid)
     }
 
 
@@ -595,17 +596,17 @@ class PlayerFragment: Fragment(), CoroutineScope,
 
 
     /* Updates podcast collection */
-    private fun downloadEpisode(episode: Episode) {
+    private fun downloadEpisode(episode: EpisodeEntity) {
         if (NetworkHelper.isConnectedToWifi(activity as Context)) {
             Toast.makeText(activity as Context, R.string.toast_message_downloading_episode, Toast.LENGTH_LONG).show()
-            DownloadHelper.downloadEpisode(activity as Context, episode.getMediaId(), ignoreWifiRestriction = true, manuallyDownloaded = true)
+            DownloadHelper.downloadEpisode(activity as Context, episode.guid, ignoreWifiRestriction = true, manuallyDownloaded = true)
         } else if (NetworkHelper.isConnectedToCellular(activity as Context) && PreferencesHelper.loadEpisodeDownloadOverMobile(activity as Context)) {
             Toast.makeText(activity as Context, R.string.toast_message_downloading_episode, Toast.LENGTH_LONG).show()
-            DownloadHelper.downloadEpisode(activity as Context, episode.getMediaId(), ignoreWifiRestriction = true, manuallyDownloaded = true)
+            DownloadHelper.downloadEpisode(activity as Context, episode.guid, ignoreWifiRestriction = true, manuallyDownloaded = true)
         } else if (NetworkHelper.isConnectedToCellular(activity as Context)) {
-            YesNoDialog(this).show(context = activity as Context, type = Keys.DIALOG_DOWNLOAD_EPISODE_WITHOUT_WIFI, message = R.string.dialog_yes_no_message_non_wifi_download, yesButton = R.string.dialog_yes_no_positive_button_non_wifi_download, payloadString = episode.getMediaId())
+            YesNoDialog(this).show(context = activity as Context, type = Keys.DIALOG_DOWNLOAD_EPISODE_WITHOUT_WIFI, message = R.string.dialog_yes_no_message_non_wifi_download, yesButton = R.string.dialog_yes_no_positive_button_non_wifi_download, payloadString = episode.guid)
         } else if (NetworkHelper.isConnectedToVpn(activity as Context))  {
-            YesNoDialog(this).show(context = activity as Context, type = Keys.DIALOG_DOWNLOAD_EPISODE_WITHOUT_WIFI, message = R.string.dialog_yes_no_message_vpn_download, yesButton = R.string.dialog_yes_no_positive_button_vpn_download, payloadString = episode.getMediaId())
+            YesNoDialog(this).show(context = activity as Context, type = Keys.DIALOG_DOWNLOAD_EPISODE_WITHOUT_WIFI, message = R.string.dialog_yes_no_message_vpn_download, yesButton = R.string.dialog_yes_no_positive_button_vpn_download, payloadString = episode.guid)
         } else {
             ErrorDialog().show(activity as Context, R.string.dialog_error_title_no_network, R.string.dialog_error_message_no_network)
         }
@@ -735,7 +736,7 @@ class PlayerFragment: Fragment(), CoroutineScope,
 
     /* Observe view model of podcast collection */
     private fun observeCollectionViewModel() {
-        collectionViewModel.collectionLiveData.observe(this, Observer<Collection> { it ->
+        collectionViewModel.legacyCollectionLiveData.observe(this, Observer<Collection> { it ->
             // update collection
             collection = it
             // updates current episode in player views
@@ -756,7 +757,7 @@ class PlayerFragment: Fragment(), CoroutineScope,
         })
 
         // todo just a test
-        collectionViewModel.collectionPodcastsLiveData.observe(this, Observer<List<PodcastEntity>> {
+        collectionViewModel.collectionLiveData.observe(this, Observer<List<PodcastWrapperEntity>> {
             LogHelper.e(TAG, "Change observed => $it")
         })
 

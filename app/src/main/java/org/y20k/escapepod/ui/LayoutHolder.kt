@@ -15,7 +15,6 @@
 package org.y20k.escapepod.ui
 
 import android.content.Context
-import android.net.Uri
 import android.os.Vibrator
 import android.support.v4.media.session.PlaybackStateCompat
 import android.view.View
@@ -35,11 +34,7 @@ import com.google.android.material.bottomsheet.BottomSheetBehavior
 import org.y20k.escapepod.Keys
 import org.y20k.escapepod.R
 import org.y20k.escapepod.core.Episode
-import org.y20k.escapepod.dialogs.ShowNotesDialog
-import org.y20k.escapepod.helpers.DateTimeHelper
-import org.y20k.escapepod.helpers.LogHelper
-import org.y20k.escapepod.helpers.PreferencesHelper
-import org.y20k.escapepod.helpers.UiHelper
+import org.y20k.escapepod.helpers.*
 
 
 /*
@@ -131,15 +126,13 @@ data class LayoutHolder(var rootView: View) {
 
     /* Updates the player views */
     fun updatePlayerViews(context: Context, episode: Episode) {
-        val coverUri: Uri = Uri.parse(episode.cover)
         val duration: String = DateTimeHelper.convertToMinutesAndSeconds(episode.duration)
-        // coverView.setImageBitmap(ImageHelper.getPodcastCover(context, coverUri, Keys.SIZE_COVER_PLAYER_SMALL))
-        coverView.setImageURI(coverUri)
+        coverView.setImageBitmap(ImageHelper.getPodcastCover(context, episode.smallCover))
         coverView.clipToOutline = true // apply rounded corner mask to covers
         coverView.contentDescription = "${context.getString(R.string.descr_player_podcast_cover)}: ${episode.podcastName}"
         podcastNameView.text = episode.podcastName
         episodeTitleView.text = episode.title
-        sheetCoverView.setImageURI(coverUri)
+        sheetCoverView.setImageBitmap(ImageHelper.getPodcastCover(context, episode.cover))
         sheetCoverView.clipToOutline = true // apply rounded corner mask to covers
         sheetCoverView.contentDescription = "${context.getString(R.string.descr_expanded_player_podcast_cover)}: ${episode.podcastName}"
         sheetEpisodeTitleView.text = episode.title
@@ -149,21 +142,21 @@ data class LayoutHolder(var rootView: View) {
 
         // update click listeners
         sheetCoverView.setOnClickListener{
-            ShowNotesDialog().show(context, episode)
+            //ShowNotesDialog().show(context, episode)
         }
         sheetEpisodeTitleView.setOnClickListener {
-            ShowNotesDialog().show(context, episode)
+            //ShowNotesDialog().show(context, episode)
         }
         podcastNameView.setOnLongClickListener{ view ->
             val v = context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
             v.vibrate(50)
-            ShowNotesDialog().show(context, episode)
+            //ShowNotesDialog().show(context, episode)
             return@setOnLongClickListener true
         }
         episodeTitleView.setOnLongClickListener{
             val v = context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
             v.vibrate(50)
-            ShowNotesDialog().show(context, episode)
+            //ShowNotesDialog().show(context, episode)
             return@setOnLongClickListener true
         }
     }

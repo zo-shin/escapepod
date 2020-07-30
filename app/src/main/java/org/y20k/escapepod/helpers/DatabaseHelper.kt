@@ -2,15 +2,15 @@ package org.y20k.escapepod.helpers
 
 import org.y20k.escapepod.core.Collection
 import org.y20k.escapepod.database.EpisodeEntity
-import org.y20k.escapepod.database.PodcastEntity
+import org.y20k.escapepod.database.PodcastDataEntity
 
 object DatabaseHelper {
 
-    fun convertToPodcastEntityList(collection: Collection): Pair<List<PodcastEntity>, List<EpisodeEntity>> {
-        val podcastList: MutableList<PodcastEntity> = mutableListOf()
+    fun convertToPodcastEntityList(collection: Collection): Pair<List<PodcastDataEntity>, List<EpisodeEntity>> {
+        val podcastList: MutableList<PodcastDataEntity> = mutableListOf()
         val episodeList: MutableList<EpisodeEntity> = mutableListOf()
         collection.podcasts.forEach { podcast ->
-            val podcastEntity: PodcastEntity = PodcastEntity(
+            val podcastEntity: PodcastDataEntity = PodcastDataEntity(
                     name = podcast.name,
                     description = podcast.description,
                     website = podcast.website,

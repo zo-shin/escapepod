@@ -6,7 +6,7 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 
-@Database(entities = arrayOf(PodcastEntity::class, EpisodeEntity::class), version = 1)
+@Database(entities = arrayOf(PodcastDataEntity::class, EpisodeEntity::class), version = 1)
 @TypeConverters(Converters::class)
 abstract class CollectionDatabase : RoomDatabase() {
 
