@@ -145,7 +145,7 @@ class PlayerService(): MediaBrowserServiceCompat(), Player.EventListener, Corout
         }
 
         MediaButtonReceiver.handleIntent(mediaSession, intent)
-        return Service.START_STICKY
+        return Service.START_NOT_STICKY
     }
 
 
